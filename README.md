@@ -4,14 +4,14 @@ This mod is an attempt to make the penetration that occurs in AI look a little b
 
 # Features
 
-Maintains the length of the penis at all times, including penetraion.  This is accomplised by finding an appropriate spot within the girl and placing the penis tip at that spot.
-This is done for vaginal, anal, and oral penetraion.
-Maintain proper rotation of the penis, no more spinning shafts during certain positions.
-Adjust the length of the penis, make it as short or long as you want.
-Can add softness to the penis.  A soft penis will squish/shorten after penetration (similar to unmodded behavior, but not to the same extent).
-Male uncensor requires a shaft bone and a head bone.
-No special female uncensors are needed, but if you use Roy12's vagina uncensor it will utilize the dynamic bones if they are present.
-Options to adjust properties of the dynamic bones.
+Maintains the length of the penis at all times, including penetraion.  This is accomplised by finding an appropriate spot within the girl and placing the penis tip at that spot.<br />
+This is done for vaginal, anal, and oral penetraion.<br />
+Maintain proper rotation of the penis, no more spinning shafts during certain positions.<br />
+Adjust the length of the penis, make it as short or long as you want.<br />
+Can add softness to the penis.  A soft penis will squish/shorten after penetration (similar to unmodded behavior, but not to the same extent) <br />
+Male uncensor requires a shaft bone and a head bone.<br />
+No special female uncensors are needed, but if you use Roy12's vagina uncensor it will utilize the dynamic bones if they are present.<br />
+Options to adjust properties of the dynamic bones.<br />
 
 # Notes
 
