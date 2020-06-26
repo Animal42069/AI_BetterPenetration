@@ -13,6 +13,6 @@ Male uncensor requires a shaft bone and a head bone.
 No special female uncensors are needed, but if you use Roy12's vagina uncensor it will utilize the dynamic bones if they are present.
 Options to adjust properties of the dynamic bones.
 
-#Notes
+# Notes
 
 The mod tries to place the head inside the girl at a position that pierces the original target (vagina, anus, mouth).  Due to sizes, lengths, angles and different positions this isn't always possible.  It is recommended to use Mantas' BetterHScenes to adjust the characters in the scene to make the geometry involved more favorable
