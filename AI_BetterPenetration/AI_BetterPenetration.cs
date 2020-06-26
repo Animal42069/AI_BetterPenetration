@@ -221,8 +221,6 @@ namespace AI_BetterPenetration
             male_list = __instance.GetMales().Where(male => male != null).ToArray();
             fem_list = __instance.GetFemales().Where(female => female != null).ToArray();
 
-            Console.WriteLine("ItJustWerks(tm)");
-
             foreach (var female in fem_list.Where(female => female != null))
             {
                 hPoint1B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_sk_04_01")).FirstOrDefault();
