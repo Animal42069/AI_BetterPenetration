@@ -16,14 +16,12 @@ namespace AI_BetterPenetration
     [BepInPlugin("animal42069.aibetterpenetration", "AI Better Penetration", VERSION)]
     public class AI_BetterPenetration : BaseUnityPlugin
     {
-        public const string VERSION = "1.0.0";
+        public const string VERSION = "1.0.0.0";
 
-        public new static ManualLogSource Logger;
-
-        private static ConfigEntry<float> _dan109Radius;
         private static ConfigEntry<float> _dan109Length;
-        private static ConfigEntry<float> _dan101Radius;
         private static ConfigEntry<float> _dan_length;
+        private static ConfigEntry<float> _dan_girth;
+        private static ConfigEntry<float> _dan_sack_size;
         private static ConfigEntry<float> _dan_softness;
         private static ConfigEntry<float> _clipping_depth;
         private static ConfigEntry<float> _kokanDamping;
@@ -36,10 +34,11 @@ namespace AI_BetterPenetration
 
         public static AIChara.ChaControl[] fem_list;
         public static AIChara.ChaControl[] male_list;
-        public static List<DynamicBone> vagBones = new List<DynamicBone>();
+        public static List<DynamicBone> kokanBones = new List<DynamicBone>();
         public static Transform dan101;
         public static Transform dan109;
         public static Transform danUp;
+        public static Transform danTop;
         private static bool bDanPenetration;
         private static bool bDansFound;
         private static bool bHPointsFound;
@@ -52,30 +51,21 @@ namespace AI_BetterPenetration
         private static Transform hPoint3B, hPoint3FL, hPoint3FR, hPoint3C;
         private static Transform hPointBackOfHead;
 
+        private static H_Lookat_dan lookat_Dan;
+
         private void Awake()
         {
-            _dan109Radius = Config.Bind<float>("Penis", "Radius of the penis tip collider", 0.20f, "Set the penis collider's radius, change depending on uncensor");
-            _dan109Length = Config.Bind<float>("Penis", "Length of the penis tip collider", 0.5f, "Set the penis collider's height, change depending on uncensor");
-            _dan101Radius = Config.Bind<float>("Penis", "Radius of the penis shaft collider", 0.215f, "Set the penis collider's radius, change depending on uncensor");
-            _dan_length = Config.Bind<float>("Penis", "Length of Penis", 2.0f, "Set the length of the penis. 2 = 20 cm or 8 inches.");
-            _dan_softness = Config.Bind<float>("Penis", "Softness of the penis", 0.0f, "Set the softness of the penis.  A value of 0 means maximum hardness, the penis will remain the same length at all times.  A value greater than 0 will cause the penis to squish/shrink after penetration, the higher the value (maximum of 1), the more squish.");
+            _dan109Length = Config.Bind<float>("Boy Options", "Length of the penis tip collider", 0.45f, "Set the penis collider's height, change depending on uncensor");
+            _dan_length = Config.Bind<float>("Boy Options", "Length of Penis", 1.8f, "Set the length of the penis.");
+            _dan_girth = Config.Bind<float>("Boy Options", "Girth of Penis", 0.4f, "Set the circumference of the penis.");
+            _dan_sack_size = Config.Bind<float>("Boy Options", "Scale of the sack", 1.0f, "Set the scale (size) of the sack");
+            _dan_softness = Config.Bind<float>("Boy Options", "Softness of the penis", 0.0f, "Set the softness of the penis.  A value of 0 means maximum hardness, the penis will remain the same length at all times.  A value greater than 0 will cause the penis to squish/shrink after penetration, the higher the value (maximum of 1), the more squish.");
 
-            _clipping_depth = Config.Bind<float>("Clipping", "Depth inside body to clip", 0.25f, "Set how close to body surface to limit penis for clipping purposes. Smaller values will result in more clipping through the body, larger values will make the shaft wander further away from the intended penetration point.");
-
-            _kokanDamping = Config.Bind<float>("Vagina", "Damping of the vagina dynamic bones", 0.2f, "Set the damping value of the vagina dynamic bones.");
-            _kokanElasticity = Config.Bind<float>("Vagina", "Elasticity of the vagina dynamic bones", 0.1f, "Set the elasticity value of the vagina dynamic bones.");
-            _kokanStiffness = Config.Bind<float>("Vagina", "Stiffness of the vagina dynamic bones", 0.1f, "Set the stiffness value of the vagina dynamic bones.");
-            _kokanInert = Config.Bind<float>("Vagina", "Inert of the vagina dynamic bones", 0.85f, "Set the inert value of the vagina dynamic bones.");
-
-            Logger = base.Logger;
-
-            _dan109Radius.SettingChanged += delegate
-            {
-                if (inHScene)
-                {
-                    dan109DBC.m_Radius = _dan109Radius.Value;
-                }
-            };
+            _clipping_depth = Config.Bind<float>("Girl Options", "Clipping Depth", 0.25f, "Set how close to body surface to limit penis for clipping purposes. Smaller values will result in more clipping through the body, larger values will make the shaft wander further away from the intended penetration point.");
+            _kokanDamping = Config.Bind<float>("Girl Options", "Damping of the vagina dynamic bones", 0.2f, "Set the damping value of the vagina dynamic bones.");
+            _kokanElasticity = Config.Bind<float>("Girl Options", "Elasticity of the vagina dynamic bones", 0.1f, "Set the elasticity value of the vagina dynamic bones.");
+            _kokanStiffness = Config.Bind<float>("Girl Options", "Stiffness of the vagina dynamic bones", 0.1f, "Set the stiffness value of the vagina dynamic bones.");
+            _kokanInert = Config.Bind<float>("Girl Options", "Inert of the vagina dynamic bones", 0.85f, "Set the inert value of the vagina dynamic bones.");
 
             _dan109Length.SettingChanged += delegate
             {
@@ -87,32 +77,43 @@ namespace AI_BetterPenetration
                 }
             };
 
-            _dan101Radius.SettingChanged += delegate
-            {
-                if (inHScene)
-                {
-                    dan101DBC.m_Radius = _dan101Radius.Value;
-                }
-            };
-
             _dan_length.SettingChanged += delegate
             {
                 if (inHScene)
                 {
-                    dan101DBC.m_Center = new Vector3(0, 0, (_dan_length.Value - _dan109Length.Value) / 2);
-                    dan101DBC.m_Height = _dan_length.Value - _dan109Length.Value;
+                    dan101DBC.m_Center = new Vector3(0, 0, (_dan_length.Value - (_dan109Length.Value / 2)) / 2);
+                    dan101DBC.m_Height = _dan_length.Value - (_dan109Length.Value / 2);
+                }
+            };
+
+            _dan_girth.SettingChanged += delegate
+            {
+                if (inHScene && bDansFound)
+                {
+                    dan109DBC.m_Radius = _dan_girth.Value / 2;
+                    dan101DBC.m_Radius = (float)1.1 * _dan_girth.Value / 2;
+                    dan101.SetLocalScaleX(_dan_girth.Value / (float)0.4);
+                    dan101.SetLocalScaleY(_dan_girth.Value / (float)0.4);
+                }
+            };
+
+            _dan_sack_size.SettingChanged += delegate
+            {
+                if (inHScene && danTop != null)
+                {
+                    danTop.SetLocalScale(_dan_sack_size.Value, _dan_sack_size.Value, _dan_sack_size.Value);
                 }
             };
 
             _kokanDamping.SettingChanged += delegate
             {
-                if (inHScene && vagBones != null)
+                if (inHScene && kokanBones != null)
                 {
-                    foreach (DynamicBone vagBone in vagBones)
+                    foreach (DynamicBone kokanBone in kokanBones)
                     {
-                        if (vagBone != null)
+                        if (kokanBone != null)
                         {
-                            vagBone.m_Damping = _kokanDamping.Value;
+                            kokanBone.m_Damping = _kokanDamping.Value;
                         }
                     }
                 }
@@ -120,13 +121,13 @@ namespace AI_BetterPenetration
 
             _kokanElasticity.SettingChanged += delegate
             {
-                if (inHScene && vagBones != null)
+                if (inHScene && kokanBones != null)
                 {
-                    foreach (DynamicBone vagBone in vagBones)
+                    foreach (DynamicBone kokanBone in kokanBones)
                     {
-                        if (vagBone != null)
+                        if (kokanBone != null)
                         {
-                            vagBone.m_Elasticity = _kokanElasticity.Value;
+                            kokanBone.m_Elasticity = _kokanElasticity.Value;
                         }
                     }
                 }
@@ -134,13 +135,13 @@ namespace AI_BetterPenetration
 
             _kokanStiffness.SettingChanged += delegate
             {
-                if (inHScene && vagBones != null)
+                if (inHScene && kokanBones != null)
                 {
-                    foreach (DynamicBone vagBone in vagBones)
+                    foreach (DynamicBone kokanBone in kokanBones)
                     {
-                        if (vagBone != null)
+                        if (kokanBone != null)
                         {
-                            vagBone.m_Stiffness = _kokanStiffness.Value;
+                            kokanBone.m_Stiffness = _kokanStiffness.Value;
                         }
                     }
                 }
@@ -148,13 +149,13 @@ namespace AI_BetterPenetration
 
             _kokanInert.SettingChanged += delegate
             {
-                if (inHScene && vagBones != null)
+                if (inHScene && kokanBones != null)
                 {
-                    foreach (DynamicBone vagBone in vagBones)
+                    foreach (DynamicBone kokanBone in kokanBones)
                     {
-                        if (vagBone != null)
+                        if (kokanBone != null)
                         {
-                            vagBone.m_Inert = _kokanInert.Value;
+                            kokanBone.m_Inert = _kokanInert.Value;
                         }
                     }
                 }
@@ -162,6 +163,18 @@ namespace AI_BetterPenetration
 
             var harmony = new Harmony("AI_BetterPenetration");
             HarmonyWrapper.PatchAll(typeof(AI_BetterPenetration), harmony);
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(HScene), "ChangeAnimation")]
+        private static void HScene_ChangeAnimation(HScene.AnimationListInfo _info)
+        {
+            bDanPenetration = false;
+            referenceLookAtTarget = null;
+            if (lookat_Dan != null)
+            {
+                lookat_Dan.transLookAtNull = null;
+                lookat_Dan.dan_Info.SetTargetTransform(null);
+            }
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(H_Lookat_dan), "setInfo")]
@@ -176,10 +189,20 @@ namespace AI_BetterPenetration
             if (__instance == null || !bDansFound || !bHPointsFound)
                 return;
 
+            if (lookat_Dan == null)
+                lookat_Dan = __instance;
+
             if (__instance.transLookAtNull != null && __instance.strPlayMotion.Contains("Idle") == false && __instance.strPlayMotion.Contains("OUT") == false)
             {
-                bDanPenetration = true;
-                referenceLookAtTarget = __instance.transLookAtNull;
+                if (__instance.transLookAtNull.name == "k_f_spine03_00")
+                {
+                    referenceLookAtTarget = dan109;
+                }
+                else
+                {
+                    bDanPenetration = true;
+                    referenceLookAtTarget = __instance.transLookAtNull;
+                }
             }
             else
             {
@@ -204,6 +227,7 @@ namespace AI_BetterPenetration
         [HarmonyPostfix, HarmonyPatch(typeof(H_Lookat_dan), "LateUpdate")]
         public static void OffsetPenisTarget(H_Lookat_dan __instance)
         {
+
             if (__instance == null || !bDansFound || !bHPointsFound)
                 return;
 
@@ -244,9 +268,17 @@ namespace AI_BetterPenetration
                 danUp = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi03_03")).FirstOrDefault();
                 dan101 = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan101_00")).FirstOrDefault();
                 dan109 = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan109_00")).FirstOrDefault();
+                danTop = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan_f_top")).FirstOrDefault();
 
                 if (dan101 != null && danUp != null && dan109 != null)
+                {
                     bDansFound = true;
+                    dan101.SetLocalScaleX(_dan_girth.Value / (float)0.4);
+                    dan101.SetLocalScaleY(_dan_girth.Value / (float)0.4);
+                }
+
+                if (danTop != null)
+                    danTop.SetLocalScale(_dan_sack_size.Value, _dan_sack_size.Value, _dan_sack_size.Value);
 
                 dan101DBC = dan101.GetComponent<DynamicBoneCollider>();
 
@@ -254,10 +286,10 @@ namespace AI_BetterPenetration
                     dan101DBC = dan101.gameObject.AddComponent(typeof(DynamicBoneCollider)) as DynamicBoneCollider;
 
                 dan101DBC.m_Direction = DynamicBoneColliderBase.Direction.Z;
-                dan101DBC.m_Center = new Vector3(0, 0, (_dan_length.Value - _dan109Length.Value) / 2);
+                dan101DBC.m_Center = new Vector3(0, 0, (_dan_length.Value - (_dan109Length.Value / 2)) / 2);
                 dan101DBC.m_Bound = DynamicBoneColliderBase.Bound.Outside;
-                dan101DBC.m_Radius = (float)_dan101Radius.Value;
-                dan101DBC.m_Height = _dan_length.Value - _dan109Length.Value;
+                dan101DBC.m_Radius = (float)1.1 * _dan_girth.Value / 2;
+                dan101DBC.m_Height = _dan_length.Value - (_dan109Length.Value / 2);
 
                 dan109DBC = dan109.GetComponent<DynamicBoneCollider>();
 
@@ -269,7 +301,7 @@ namespace AI_BetterPenetration
                 dan109DBC.m_Direction = DynamicBoneColliderBase.Direction.Z;
                 dan109DBC.m_Center = new Vector3(0, 0, 0);
                 dan109DBC.m_Bound = DynamicBoneColliderBase.Bound.Outside;
-                dan109DBC.m_Radius = _dan109Radius.Value;
+                dan109DBC.m_Radius = _dan_girth.Value / 2;
                 dan109DBC.m_Height = _dan109Length.Value;
             }
 
@@ -284,7 +316,7 @@ namespace AI_BetterPenetration
                         db.m_Stiffness = _kokanStiffness.Value;
                         db.m_Inert = _kokanInert.Value;
 
-                        vagBones.Add(db);
+                        kokanBones.Add(db);
 
                         if (db.m_Colliders.Contains(dan101DBC))
                         {
@@ -316,14 +348,14 @@ namespace AI_BetterPenetration
             inHScene = false;
             if (!inHScene)
             {
-                if (vagBones.Any())
+                if (kokanBones.Any())
                 {
-                    foreach (DynamicBone vagBone in vagBones)
+                    foreach (DynamicBone kokanBone in kokanBones)
                     {
-                        if (vagBone != null)
+                        if (kokanBone != null)
                         {
-                            Console.WriteLine("Clearing colliders from " + vagBone.m_Root.name);
-                            vagBone.m_Colliders.Clear();
+                            Console.WriteLine("Clearing colliders from " + kokanBone.m_Root.name);
+                            kokanBone.m_Colliders.Clear();
                         }
                     }
                     Console.WriteLine("Destroying collider " + dan109DBC.name);
@@ -481,19 +513,22 @@ namespace AI_BetterPenetration
 
                     dan109_pos = Vector3.LerpUnclamped(dan101_pos, lookTarget, tdist);
 
-                    float max_dist = Vector3.Distance(dan101_pos, hPointBackOfHead.position) - _clipping_depth.Value;
+                    float max_dist = Vector3.Distance(dan101_pos, hPointBackOfHead.position) - _clipping_depth.Value - (_dan109Length.Value / 2) ;
                     float max_tdist = danLength / max_dist;
 
                     if (pdist > max_dist)
                         dan109_pos = Vector3.LerpUnclamped(dan101_pos, lookTarget, max_tdist);
                 }
+                /*
+                                replacementLookAtTarget.SetPosition(dan109_pos.x, dan109_pos.y, dan109_pos.z);
 
-                replacementLookAtTarget.SetPosition(dan109_pos.x, dan109_pos.y, dan109_pos.z);
+                                __instance.transLookAtNull = replacementLookAtTarget;
+                                __instance.dan_Info.SetTargetTransform(replacementLookAtTarget);
 
-                __instance.transLookAtNull = replacementLookAtTarget;
-                __instance.dan_Info.SetTargetTransform(replacementLookAtTarget);
+                                dan101.rotation = Quaternion.LookRotation(replacementLookAtTarget.position - dan101.position, Vector3.Normalize(danUp.position - dan101.position));*/
 
-                dan101.rotation = Quaternion.LookRotation(replacementLookAtTarget.position - dan101.position, Vector3.Normalize(danUp.position - dan101.position));
+                dan109.SetPosition(dan109_pos.x, dan109_pos.y, dan109_pos.z);
+                dan101.rotation = Quaternion.LookRotation(dan109.position - dan101.position, Vector3.Normalize(danUp.position - dan101.position));
             }
         }
     }
