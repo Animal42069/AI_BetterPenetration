@@ -16,7 +16,7 @@ namespace AI_BetterPenetration
     [BepInPlugin("animal42069.aibetterpenetration", "AI Better Penetration", VERSION)]
     public class AI_BetterPenetration : BaseUnityPlugin
     {
-        public const string VERSION = "1.0.0.0";
+        public const string VERSION = "1.0.1.0";
 
         private static ConfigEntry<float> _dan109Length;
         private static ConfigEntry<float> _dan_length;
@@ -28,6 +28,8 @@ namespace AI_BetterPenetration
         private static ConfigEntry<float> _kokanElasticity;
         private static ConfigEntry<float> _kokanStiffness;
         private static ConfigEntry<float> _kokanInert;
+        private static ConfigEntry<bool> _kokanFreezeZ;
+        private static ConfigEntry<bool> _kokanFreezeWallZ;
 
         public static DynamicBoneCollider dan109DBC;
         public static DynamicBoneCollider dan101DBC;
@@ -59,13 +61,15 @@ namespace AI_BetterPenetration
             _dan_length = Config.Bind<float>("Boy Options", "Length of Penis", 1.8f, "Set the length of the penis.");
             _dan_girth = Config.Bind<float>("Boy Options", "Girth of Penis", 0.4f, "Set the circumference of the penis.");
             _dan_sack_size = Config.Bind<float>("Boy Options", "Scale of the sack", 1.0f, "Set the scale (size) of the sack");
-            _dan_softness = Config.Bind<float>("Boy Options", "Softness of the penis", 0.0f, "Set the softness of the penis.  A value of 0 means maximum hardness, the penis will remain the same length at all times.  A value greater than 0 will cause the penis to squish/shrink after penetration, the higher the value (maximum of 1), the more squish.");
+            _dan_softness = Config.Bind<float>("Boy Options", "Softness of the penis", 0.1f, "Set the softness of the penis.  A value of 0 means maximum hardness, the penis will remain the same length at all times.  A value greater than 0 will cause the penis to squish/shrink after penetration, the higher the value (maximum of 1), the more squish.");
 
             _clipping_depth = Config.Bind<float>("Girl Options", "Clipping Depth", 0.25f, "Set how close to body surface to limit penis for clipping purposes. Smaller values will result in more clipping through the body, larger values will make the shaft wander further away from the intended penetration point.");
             _kokanDamping = Config.Bind<float>("Girl Options", "Damping of the vagina dynamic bones", 0.2f, "Set the damping value of the vagina dynamic bones.");
             _kokanElasticity = Config.Bind<float>("Girl Options", "Elasticity of the vagina dynamic bones", 0.1f, "Set the elasticity value of the vagina dynamic bones.");
             _kokanStiffness = Config.Bind<float>("Girl Options", "Stiffness of the vagina dynamic bones", 0.1f, "Set the stiffness value of the vagina dynamic bones.");
             _kokanInert = Config.Bind<float>("Girl Options", "Inert of the vagina dynamic bones", 0.85f, "Set the inert value of the vagina dynamic bones.");
+            _kokanFreezeZ = Config.Bind<bool>("Girl Options", "Freeze the Z axis of the vagina dynamic bones", false, "Freeze the Z axis of the vagina dynamic bones.");
+            _kokanFreezeWallZ = Config.Bind<bool>("Girl Options", "Freeze the Z axis of the vagina wall dynamic bones", false, "Freeze the Z axis of the vagina dynamic bones.");
 
             _dan109Length.SettingChanged += delegate
             {
@@ -161,6 +165,46 @@ namespace AI_BetterPenetration
                 }
             };
 
+            _kokanFreezeZ.SettingChanged += delegate
+            {
+                if (inHScene && kokanBones != null)
+                {
+                    foreach (DynamicBone kokanBone in kokanBones)
+                    {
+                        if (kokanBone != null)
+                        {
+                            if (kokanBone.m_Root.name.Contains("Wall") == false)
+                            {
+                                if (_kokanFreezeZ.Value == true)
+                                    kokanBone.m_FreezeAxis = DynamicBone.FreezeAxis.Z;
+                                else
+                                    kokanBone.m_FreezeAxis = DynamicBone.FreezeAxis.None;
+                            }
+                        }
+                    }
+                }
+            };
+
+            _kokanFreezeWallZ.SettingChanged += delegate
+            {
+                if (inHScene && kokanBones != null)
+                {
+                    foreach (DynamicBone kokanBone in kokanBones)
+                    {
+                        if (kokanBone != null)
+                        {
+                            if (kokanBone.m_Root.name.Contains("Wall"))
+                            {
+                                if (_kokanFreezeWallZ.Value == true)
+                                    kokanBone.m_FreezeAxis = DynamicBone.FreezeAxis.Z;
+                                else
+                                    kokanBone.m_FreezeAxis = DynamicBone.FreezeAxis.None;
+                            }
+                        }
+                    }
+                }
+            };
+
             var harmony = new Harmony("AI_BetterPenetration");
             HarmonyWrapper.PatchAll(typeof(AI_BetterPenetration), harmony);
         }
@@ -231,6 +275,13 @@ namespace AI_BetterPenetration
             if (__instance == null || !bDansFound || !bHPointsFound)
                 return;
 
+            // something is over
+            if (bDansFound)
+            {
+                dan101.SetLocalScaleX(_dan_girth.Value / (float)0.4);
+                dan101.SetLocalScaleY(_dan_girth.Value / (float)0.4);
+            }
+
             SetDanTarget(__instance);
         }
 
@@ -245,76 +296,92 @@ namespace AI_BetterPenetration
             male_list = __instance.GetMales().Where(male => male != null).ToArray();
             fem_list = __instance.GetFemales().Where(female => female != null).ToArray();
 
-            foreach (var female in fem_list.Where(female => female != null))
-            {
-                hPoint1B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_sk_04_01")).FirstOrDefault();
-                hPoint1F = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi03_03")).FirstOrDefault();
-                hPoint1C = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi02_03")).FirstOrDefault();
-                hPoint2B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("N_Waist_b")).FirstOrDefault();
-                hPoint2F = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("N_Waist_f")).FirstOrDefault();
-                hPoint2C = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi01_03")).FirstOrDefault();
-                hPoint3B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("N_Back")).FirstOrDefault();
-                hPoint3FL = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_Mune00_d_R")).FirstOrDefault();
-                hPoint3FR = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_Mune00_d_R")).FirstOrDefault();
-                hPoint3C = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_spine02_03")).FirstOrDefault();
-                hPointBackOfHead = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_head_03")).FirstOrDefault();
-            }
-
-            if (hPoint1F != null && hPoint1C != null && hPoint2B != null && hPoint2C != null && hPoint3B != null && hPoint3FL != null && hPoint3FR != null && hPoint3C != null && hPointBackOfHead != null)
-                bHPointsFound = true;
-
             foreach (var male in male_list.Where(male => male != null))
             {
-                danUp = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi03_03")).FirstOrDefault();
-                dan101 = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan101_00")).FirstOrDefault();
-                dan109 = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan109_00")).FirstOrDefault();
-                danTop = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan_f_top")).FirstOrDefault();
-
-                if (dan101 != null && danUp != null && dan109 != null)
+                if (!bDansFound)
                 {
-                    bDansFound = true;
-                    dan101.SetLocalScaleX(_dan_girth.Value / (float)0.4);
-                    dan101.SetLocalScaleY(_dan_girth.Value / (float)0.4);
+                    danUp = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi03_03")).FirstOrDefault();
+                    dan101 = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan101_00")).FirstOrDefault();
+                    dan109 = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan109_00")).FirstOrDefault();
+                    danTop = male.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cm_J_dan_f_top")).FirstOrDefault();
+
+                    if (dan101 != null && danUp != null && dan109 != null)
+                    {
+                        bDansFound = true;
+                        dan101.SetLocalScaleX(_dan_girth.Value / (float)0.4);
+                        dan101.SetLocalScaleY(_dan_girth.Value / (float)0.4);
+                    }
+
+                    if (danTop != null)
+                        danTop.SetLocalScale(_dan_sack_size.Value, _dan_sack_size.Value, _dan_sack_size.Value);
+
+                    dan101DBC = dan101.GetComponent<DynamicBoneCollider>();
+
+                    if (dan101DBC == null)
+                        dan101DBC = dan101.gameObject.AddComponent(typeof(DynamicBoneCollider)) as DynamicBoneCollider;
+
+                    dan101DBC.m_Direction = DynamicBoneColliderBase.Direction.Z;
+                    dan101DBC.m_Center = new Vector3(0, 0, (_dan_length.Value - (_dan109Length.Value / 2)) / 2);
+                    dan101DBC.m_Bound = DynamicBoneColliderBase.Bound.Outside;
+                    dan101DBC.m_Radius = (float)1.1 * _dan_girth.Value / 2;
+                    dan101DBC.m_Height = _dan_length.Value - (_dan109Length.Value / 2);
+
+                    dan109DBC = dan109.GetComponent<DynamicBoneCollider>();
+
+                    if (dan109DBC == null)
+                    {
+                        dan109DBC = dan109.gameObject.AddComponent(typeof(DynamicBoneCollider)) as DynamicBoneCollider;
+                    }
+
+                    dan109DBC.m_Direction = DynamicBoneColliderBase.Direction.Z;
+                    dan109DBC.m_Center = new Vector3(0, 0, 0);
+                    dan109DBC.m_Bound = DynamicBoneColliderBase.Bound.Outside;
+                    dan109DBC.m_Radius = _dan_girth.Value / 2;
+                    dan109DBC.m_Height = _dan109Length.Value;
                 }
-
-                if (danTop != null)
-                    danTop.SetLocalScale(_dan_sack_size.Value, _dan_sack_size.Value, _dan_sack_size.Value);
-
-                dan101DBC = dan101.GetComponent<DynamicBoneCollider>();
-
-                if (dan101DBC == null)
-                    dan101DBC = dan101.gameObject.AddComponent(typeof(DynamicBoneCollider)) as DynamicBoneCollider;
-
-                dan101DBC.m_Direction = DynamicBoneColliderBase.Direction.Z;
-                dan101DBC.m_Center = new Vector3(0, 0, (_dan_length.Value - (_dan109Length.Value / 2)) / 2);
-                dan101DBC.m_Bound = DynamicBoneColliderBase.Bound.Outside;
-                dan101DBC.m_Radius = (float)1.1 * _dan_girth.Value / 2;
-                dan101DBC.m_Height = _dan_length.Value - (_dan109Length.Value / 2);
-
-                dan109DBC = dan109.GetComponent<DynamicBoneCollider>();
-
-                if (dan109DBC == null)
-                {
-                    dan109DBC = dan109.gameObject.AddComponent(typeof(DynamicBoneCollider)) as DynamicBoneCollider;
-                }
-
-                dan109DBC.m_Direction = DynamicBoneColliderBase.Direction.Z;
-                dan109DBC.m_Center = new Vector3(0, 0, 0);
-                dan109DBC.m_Bound = DynamicBoneColliderBase.Bound.Outside;
-                dan109DBC.m_Radius = _dan_girth.Value / 2;
-                dan109DBC.m_Height = _dan109Length.Value;
             }
 
             foreach (var female in fem_list.Where(female => female != null))
             {
+                if (!bHPointsFound)
+                {
+                    hPoint1B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_sk_04_01")).FirstOrDefault();
+                    hPoint1F = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi03_03")).FirstOrDefault();
+                    hPoint1C = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi02_03")).FirstOrDefault();
+                    hPoint2B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("N_Waist_b")).FirstOrDefault();
+                    hPoint2F = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("N_Waist_f")).FirstOrDefault();
+                    hPoint2C = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_kosi01_03")).FirstOrDefault();
+                    hPoint3B = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("N_Back")).FirstOrDefault();
+                    hPoint3FL = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_Mune00_d_R")).FirstOrDefault();
+                    hPoint3FR = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("cf_J_Mune00_d_R")).FirstOrDefault();
+                    hPoint3C = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_spine02_03")).FirstOrDefault();
+                    hPointBackOfHead = female.GetComponentsInChildren<Transform>().Where(x => x.name.Contains("k_f_head_03")).FirstOrDefault();
+
+                    if (hPoint1F != null && hPoint1C != null && hPoint2B != null && hPoint2C != null && hPoint3B != null && hPoint3FL != null && hPoint3FR != null && hPoint3C != null && hPointBackOfHead != null)
+                        bHPointsFound = true;
+                }
+
                 foreach (DynamicBone db in female.GetComponentsInChildren<DynamicBone>().Where(x => x.name.Contains("cf_J_Vagina")))
                 {
                     if (db != null)
                     {
+                        Console.WriteLine(db.m_Root.name + " found, adding collildres");
+
                         db.m_Damping = _kokanDamping.Value;
                         db.m_Elasticity = _kokanElasticity.Value;
                         db.m_Stiffness = _kokanStiffness.Value;
                         db.m_Inert = _kokanInert.Value;
+
+                        if (db.m_Root.name.Contains("walls"))
+                        {
+                            if (_kokanFreezeWallZ.Value == true)
+                                db.m_FreezeAxis = DynamicBone.FreezeAxis.Z;
+                        }
+                        else
+                        {
+                            if (_kokanFreezeZ.Value == true)
+                                db.m_FreezeAxis = DynamicBone.FreezeAxis.Z;
+                        }
 
                         kokanBones.Add(db);
 
@@ -413,7 +480,6 @@ namespace AI_BetterPenetration
                     Vector3 hPoint3Fpos = Vector3.Lerp(hPoint3FLRpos, hPoint3B.position, _clipping_depth.Value / Vector3.Distance(hPoint3FLRpos, hPoint3B.position));
                     Vector3 hPoint3Bpos = Vector3.Lerp(hPoint3B.position, hPoint3FLRpos, _clipping_depth.Value / Vector3.Distance(hPoint3FLRpos, hPoint3B.position));
 
-                    //float danToH0Fdist = Vector3.Distance(dan101_pos, hPoint1Fpos);
                     float danToH1Fdist = Vector3.Distance(dan101_pos, hPoint1Fpos);
                     float danToH2Fdist = Vector3.Distance(dan101_pos, hPoint2Fpos);
                     float danToH3Fdist = Vector3.Distance(dan101_pos, hPoint3Fpos);
@@ -442,7 +508,7 @@ namespace AI_BetterPenetration
                     }
                     else if (danLength > danToH1Fdist)
                     {
-                        h1Fpos = Vector3.LerpUnclamped(dan101_pos, hPoint1F.position, danLength / danToH1Fdist);
+                        h1Fpos = Vector3.LerpUnclamped(dan101_pos, hPoint1Fpos, danLength / danToH1Fdist);
                         h3Fpos = h2Fpos = Quadratic.SolveQuadratic(hPoint1Fpos, hPoint2Fpos, h1Fpos, danToH1Fdist, danLength);
                     }
                     else if (danLength > pdist)
@@ -492,16 +558,36 @@ namespace AI_BetterPenetration
                     if (Vector3.Distance(h1Bpos, hFpos) < Vector3.Distance(hBpos, hFpos))
                         hBpos = h1Bpos;
 
-                    float WaistDif = Vector3.Distance(hFpos, hBpos);
-                    float DanTopDif = Vector3.Distance(dan109_pos, hFpos);
-                    float DanBotDif = Vector3.Distance(dan109_pos, hBpos);
+                    Vector3 inside = hBpos - hFpos;
+                    float t = Vector3.Dot(dan109_pos - hFpos, inside) / Vector3.Dot(inside, inside);
 
-                    if (DanTopDif > WaistDif || DanBotDif > WaistDif)
+                    if (t < 0)
                     {
-                        if (DanTopDif > DanBotDif)
-                            dan109_pos = hBpos;
-                        else
-                            dan109_pos = hFpos;
+                        Vector3 onLineDan = Vector3.LerpUnclamped(hFpos, hBpos, t);
+                        Vector3 constrainedDan = dan109_pos + (hFpos - onLineDan);
+
+                        pdist = Vector3.Distance(dan101_pos, constrainedDan);
+
+                        danLength = _dan_length.Value;
+                        if (_dan_length.Value > pdist)
+                            danLength = _dan_length.Value - (_dan_length.Value - pdist) * _dan_softness.Value;
+                        tdist = danLength / pdist;
+
+                        dan109_pos = Vector3.LerpUnclamped(dan101_pos, constrainedDan, tdist);
+                    }
+                    else if (t > 1)
+                    {
+                        Vector3 onLineDan = Vector3.LerpUnclamped(hFpos, hBpos, t);
+                        Vector3 constrainedDan = dan109_pos + (onLineDan - hBpos);
+
+                        pdist = Vector3.Distance(dan101_pos, constrainedDan);
+
+                        danLength = _dan_length.Value;
+                        if (_dan_length.Value > pdist)
+                            danLength = _dan_length.Value - (_dan_length.Value - pdist) * _dan_softness.Value;
+                        tdist = danLength / pdist;
+
+                        dan109_pos = Vector3.LerpUnclamped(dan101_pos, constrainedDan, tdist);
                     }
                 }
                 else if (referenceLookAtTarget.name == "k_f_head_00")
@@ -511,21 +597,13 @@ namespace AI_BetterPenetration
                         danLength = _dan_length.Value - (_dan_length.Value - pdist) * _dan_softness.Value;
                     tdist = danLength / pdist;
 
+                    float max_dist = pdist + Vector3.Distance(lookTarget, hPointBackOfHead.position);
+
+                    if (danLength > max_dist)
+                        tdist = max_dist / pdist;
+
                     dan109_pos = Vector3.LerpUnclamped(dan101_pos, lookTarget, tdist);
-
-                    float max_dist = Vector3.Distance(dan101_pos, hPointBackOfHead.position) - _clipping_depth.Value - (_dan109Length.Value / 2) ;
-                    float max_tdist = danLength / max_dist;
-
-                    if (pdist > max_dist)
-                        dan109_pos = Vector3.LerpUnclamped(dan101_pos, lookTarget, max_tdist);
                 }
-                /*
-                                replacementLookAtTarget.SetPosition(dan109_pos.x, dan109_pos.y, dan109_pos.z);
-
-                                __instance.transLookAtNull = replacementLookAtTarget;
-                                __instance.dan_Info.SetTargetTransform(replacementLookAtTarget);
-
-                                dan101.rotation = Quaternion.LookRotation(replacementLookAtTarget.position - dan101.position, Vector3.Normalize(danUp.position - dan101.position));*/
 
                 dan109.SetPosition(dan109_pos.x, dan109_pos.y, dan109_pos.z);
                 dan101.rotation = Quaternion.LookRotation(dan109.position - dan101.position, Vector3.Normalize(danUp.position - dan101.position));
